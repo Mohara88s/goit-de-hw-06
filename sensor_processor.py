@@ -21,7 +21,7 @@ spark = (
 
 # Читання потоку даних із Kafka
 # Вказівки, як саме ми будемо під'єднуватися, паролі, протоколи
-# maxOffsetsPerTrigger - будемо читати 50 записів за 1 тригер.
+# maxOffsetsPerTrigger - будемо читати 300 записів за 1 тригер.
 df = (spark 
     .readStream 
     .format("kafka") 
@@ -32,7 +32,7 @@ df = (spark
             'org.apache.kafka.common.security.plain.PlainLoginModule required username="admin" password="VawEzo1ikLtrA8Ug8THa";') 
     .option("subscribe", "vitalii_vasylets_building_sensors") 
     .option("startingOffsets", "earliest") 
-    .option("maxOffsetsPerTrigger", "50") 
+    .option("maxOffsetsPerTrigger", "300") 
     .option("failOnDataLoss", "false")
     .load()
     )
@@ -46,7 +46,7 @@ json_schema = StructType([
     StructField("humidity", IntegerType(), True)
     ])
 
-# Маніпуляції з даними
+# Маніпуляції з даними (знаходження середніх значень показників)
 windowed_df = (df.selectExpr("CAST(value AS STRING) AS value_deserialized") 
     .withColumn("json", from_json(col("value_deserialized"), json_schema))
     .select(
@@ -77,6 +77,7 @@ alerts_conditions_typed = alerts_df.select(
     col("message")
 )
 
+# Знаходження спрацьованих алертів
 alerts = windowed_df.crossJoin(alerts_conditions_typed).filter(
     (
         (col("humidity_min") != -999.0) & (col("humidity_max") != -999.0) &
@@ -98,7 +99,7 @@ displaying_df = (alerts.writeStream
     .start() 
     )
 
-# Підготовка даних для запису в Kafka: формування ключ-значення
+# Підготовка даних alerts для запису в Kafka
 prepare_to_kafka_df = alerts.select(
     to_json(struct(
             col("window"),
@@ -110,7 +111,7 @@ prepare_to_kafka_df = alerts.select(
         )).alias("value")
     )
 
-# Запис оброблених даних у Kafka-топік 'vitalii_vasylets_alerts'
+# Запис оброблених даних alerts у Kafka-топік 'vitalii_vasylets_alerts'
 query = (prepare_to_kafka_df.writeStream 
     .trigger(processingTime='30 seconds') 
     .format("kafka") 

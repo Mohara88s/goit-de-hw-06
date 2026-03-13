@@ -26,15 +26,17 @@ sensor_id = int(uuid.uuid4().hex[:8], 16)
 for i in range(1000):
     # Відправлення повідомлення в топік
     try:
+        t=random.randint(10, 45)  # Випадкове значення температури
+        h=random.randint(45, 85)  # Випадкове значення вологості
         data = {
             "sensor_id":sensor_id,
             "timestamp": time.time(),  # Часова мітка
-            "temperature": random.randint(5, 45),  # Випадкове значення температури
-            "humidity": random.randint(45, 95)  # Випадкове значення вологості
+            "temperature": t,
+            "humidity": h,
         }
         producer.send(topic_name, key=str(uuid.uuid4()), value=data)
         producer.flush()
-        print(f"Sensor {sensor_id} sent to topic '{topic_name}' the data package № {i} successfully.")
+        print(f"Sensor {sensor_id} with t={t}, h={h} sent successfully.")
         time.sleep(2)
     except Exception as e:
         print(f"An error occurred: {e}")
